@@ -20,31 +20,30 @@ def read_geofile(path: Path) -> gpd.GeoDataFrame:
 
 def _read_zipped_shapefile(path: Path) -> gpd.GeoDataFrame:
     """
-    Extracts a zipped shapefile and returns it as a GeoDataFrame.
+    Validates a zipped shapefile and reads it directly from the zip, without extracting.
     """
     try:
-        archive = ZipFile(path)
+        with ZipFile(path) as archive:
+            names = archive.namelist()
     except BadZipFile:
         raise ValueError("The uploaded file is not a valid zip archive.")
 
-    with archive:
-        # Find .shp files, ignoring hidden macOS metadata entries
-        shp_files = [
-            name for name in archive.namelist()
-            if name.lower().endswith(".shp") and not name.startswith("__MACOSX/")
-        ]
-        if not shp_files:
-            raise ValueError("No shapefile (.shp) found in the ZIP archive.")
+    # Find .shp files, ignoring hidden macOS metadata entries
+    shp_files = [
+        name for name in names
+        if name.lower().endswith(".shp") and not name.startswith("__MACOSX/")
+    ]
+    if not shp_files:
+        raise ValueError("No shapefile (.shp) found in the ZIP archive.")
 
-        target_folder = path.parent / "extracted"
-        archive.extractall(path=target_folder)
+    shp_name = shp_files[0]
 
-    # Path to the extracted .shp file
-    shp_path = target_folder / shp_files[0]
-
-    # A shapefile needs its .shx and .dbf parts to be readable
+    # A shapefile needs its .shx and .dbf parts, with the same name, to be readable
+    lowercase_names = {name.lower() for name in names}
+    base = shp_name[:-4].lower()                     # "data/plots.shp" -> "data/plots"
     for ext in (".shx", ".dbf"):
-        if not shp_path.with_suffix(ext).exists():
+        if base + ext not in lowercase_names:
             raise ValueError(f"Shapefile is missing its {ext} file.")
 
-    return gpd.read_file(shp_path)
+    # Let GDAL read the .shp straight from inside the zip
+    return gpd.read_file(f"zip://{path.resolve().as_posix()}!{shp_name}")
