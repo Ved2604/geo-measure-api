@@ -110,6 +110,8 @@ def _feature_info(feature: Feature) -> dict:
     return {
         "index": feature.index,
         "geometry_type": feature.geometry_type,
+        "geometry": feature.geometry,
+        "crs": feature.crs,
         "properties": feature.properties,
         "status": feature.status,
         "area_m2": feature.area_m2,

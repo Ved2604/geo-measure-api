@@ -2,6 +2,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from shapely.geometry import mapping
 
 from app.measurement import _result, measure
 from app.reader import read_geofile
@@ -21,11 +22,16 @@ def process_file(path: Path) -> dict:
 
     features = []
     for index, row in gdf.iterrows():
-        geom = row.geometry
+        geom = gdf.geometry.loc[index]   # read from the GeoSeries: iterrows turns a missing geometry into NaN
+
+        has_geometry = geom is not None and not geom.is_empty
 
         feature_info = {
             "index": int(index),
-            "geometry_type": geom.geom_type if geom is not None else None,
+            "geometry_type": geom.geom_type if has_geometry else None,
+            # Coordinates as GeoJSON, in the file's own CRS (given by "crs")
+            "geometry": mapping(geom) if has_geometry else None,
+            "crs": crs_label,
             "properties": _clean_properties(row.drop(gdf.geometry.name).to_dict()),
         }
 

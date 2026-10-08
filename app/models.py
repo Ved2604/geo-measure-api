@@ -31,6 +31,8 @@ class Feature(Base):
     file_id: Mapped[str] = mapped_column(ForeignKey("files.id"), index=True)
     index: Mapped[int] = mapped_column(Integer)
     geometry_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    geometry: Mapped[dict | None] = mapped_column(JSON, nullable=True)   # GeoJSON, in the source CRS
+    crs: Mapped[str | None] = mapped_column(String, nullable=True)       # source CRS of this feature
     properties: Mapped[dict] = mapped_column(JSON, default=dict)
 
     status: Mapped[str] = mapped_column(String)

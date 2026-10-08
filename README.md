@@ -90,6 +90,19 @@ curl http://127.0.0.1:8000/api/files/723b99e3146844b88ed0634ab32330cb/measuremen
     {
       "index": 0,
       "geometry_type": "Polygon",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [77.59, 12.97, 0.0],
+            [77.599, 12.97, 0.0],
+            [77.599, 12.979, 0.0],
+            [77.59, 12.979, 0.0],
+            [77.59, 12.97, 0.0]
+          ]
+        ]
+      },
+      "crs": "EPSG:4326",
       "properties": {
         "Name": "Plot A",
         "tessellate": -1,
@@ -106,6 +119,14 @@ curl http://127.0.0.1:8000/api/files/723b99e3146844b88ed0634ab32330cb/measuremen
     {
       "index": 1,
       "geometry_type": "LineString",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [77.59, 12.965, 0.0],
+          [77.599, 12.965, 0.0]
+        ]
+      },
+      "crs": "EPSG:4326",
       "properties": {
         "Name": "Road",
         "tessellate": -1,
@@ -122,6 +143,11 @@ curl http://127.0.0.1:8000/api/files/723b99e3146844b88ed0634ab32330cb/measuremen
     {
       "index": 2,
       "geometry_type": "Point",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [77.595, 12.975, 0.0]
+      },
+      "crs": "EPSG:4326",
       "properties": {
         "Name": "Marker",
         "tessellate": -1,
@@ -140,6 +166,8 @@ curl http://127.0.0.1:8000/api/files/723b99e3146844b88ed0634ab32330cb/measuremen
 ```
 
 If the file's processing failed, this endpoint returns `409` with the reason. Unknown ids return `404`.
+
+Each feature includes its `geometry` as GeoJSON, with coordinates in the file's own CRS, and that CRS in its `crs` field. For a KML this is longitude/latitude (EPSG:4326); for a Shapefile stored in UTM, the coordinates are in metres. `projected_crs` is separate: it is the UTM zone chosen for measuring that particular feature.
 
 Every feature has exactly one `status`:
 
@@ -173,7 +201,7 @@ The reading and measuring code (`reader.py`, `measurement.py`, `processor.py`) h
 3. **Read the file** into a GeoDataFrame:
    - **KML** is read directly by GDAL.
    - **Zipped Shapefile**: the zip's file list is inspected without extracting anything. It must contain a `.shp` with matching `.shx` and `.dbf` files (matched case-insensitively, with hidden `__MACOSX/` entries ignored). GDAL then reads the `.shp` straight from inside the zip.
-4. **Process every feature**: record its index, geometry type and properties, then measure it. Empty property values are removed and the rest converted to plain JSON types.
+4. **Process every feature**: record its index, geometry type, geometry (as GeoJSON), CRS and properties, then measure it. Empty property values are removed and the rest converted to plain JSON types.
 5. **Store the results** in SQLite: one row in `files`, one row per feature in `features`.
 
 Problems with the file as a whole are recorded as `status: "FAILED"` with a readable message. Problems with an individual feature are recorded on that feature and never fail the whole file.
@@ -215,7 +243,6 @@ Area and length are never calculated in degrees. A degree of longitude covers ab
 
 ## Known limitations
 
-- **Geometry is not yet returned** by the API, and the CRS is reported per file rather than per feature.
 - **KML files with several folders**: only the first folder (layer) is read.
 - **Zips with several Shapefiles**: only the first `.shp` is read.
 - **Invalid polygons**, such as self-intersecting "bow-tie" shapes, are measured as they are and may give a misleading area.
@@ -224,7 +251,7 @@ Area and length are never calculated in degrees. A degree of longitude covers ab
 
 ## Future scope
 
-- Return each feature's geometry as GeoJSON, through a `/features/` endpoint or an `include_geometry` option.
+- An option to leave out geometry, or a separate `/features/` endpoint, so measurement responses stay small for very detailed files.
 - Read every layer of a multi-folder KML and every Shapefile in a zip.
 - Repair invalid polygons before measuring and flag them in the `note` field.
 - Fall back to an equal-area projection for features too large or too far north or south for UTM.
